@@ -1,6 +1,4 @@
--- Prism Rush: the server entry point. One job: answer the client's best-score
--- requests through a RemoteFunction. The game itself runs on the client; the
--- server only guards the persistent best score.
+-- Prism Rush: server entry. Answers best-score requests via RemoteFunction; the game runs on the client.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 

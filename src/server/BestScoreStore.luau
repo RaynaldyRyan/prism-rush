@@ -1,6 +1,4 @@
--- Prism Rush: best-score persistence. DataStore when it is available, an
--- in-memory table when it is not (a Studio playtest without API access, for
--- example). Every DataStore call is pcall-wrapped, so the game never errors.
+-- Prism Rush: best-score persistence. DataStore when available, in-memory fallback otherwise; all calls pcall-wrapped.
 
 local DataStoreService = game:GetService("DataStoreService")
 
