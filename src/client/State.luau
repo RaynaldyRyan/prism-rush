@@ -1,5 +1,4 @@
--- Prism Rush: the single game state. Every module reads and writes this one
--- table; nothing keeps a second copy of the score, the lives or the phase.
+-- Prism Rush: the single game state. Every module reads and writes this one table.
 
 local Config = require(script.Parent.Config)
 
@@ -10,15 +9,18 @@ State.combo = 1
 State.comboTimer = 0
 State.lives = Config.MAX_LIVES
 State.zone = 1
-State.crystalsMined = 0 -- total across all zones, for the end screen
-State.portalCharge = 0 -- crystals mined in the current zone (0..6)
+State.crystalsMined = 0 -- total mined
+State.portalCharge = 0 -- mined this zone
 State.shield = false
+State.bossHp = 0 -- boss HP
+State.bossMax = 0 -- boss max HP
+State.rapidTimer = 0 -- rapid fire left
 State.phase = "menu" -- menu | playing | won | lost
 State.best = 0
 State.elapsed = 0
 State.playerX = Config.ARENA_WIDTH / 2
 State.playerY = Config.ARENA_HEIGHT / 2
-State.breather = 0 -- seconds of enemy pause after a zone change
+State.breather = 0 -- zone-change pause
 
 function State.reset(best)
 	State.score = 0
@@ -29,6 +31,9 @@ function State.reset(best)
 	State.crystalsMined = 0
 	State.portalCharge = 0
 	State.shield = false
+	State.bossHp = 0
+	State.bossMax = 0
+	State.rapidTimer = 0
 	State.phase = "playing"
 	State.best = best or 0
 	State.elapsed = 0
@@ -37,9 +42,8 @@ function State.reset(best)
 	State.breather = 0
 end
 
--- Adds a score event, multiplied by the current combo, then chains the
--- combo up one step (to x3 at most) and restarts the combo window.
--- Returns the points actually gained, for the popup text.
+-- Adds base x combo to the score, chains the combo up (max x3), restarts
+-- the combo window. Returns the points gained, for the popup text.
 function State.addScore(base)
 	local gained = base * State.combo
 	State.score += gained

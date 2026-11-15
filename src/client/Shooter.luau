@@ -1,10 +1,8 @@
--- Prism Rush: shooting. Hold the left mouse button to fire prism bolts
--- toward the mouse position, rate-limited to one bolt every 0.25 seconds.
--- Bolts fly straight, die at the arena edge, and damage the first enemy
--- they overlap. Hit detection is a circle overlap against each enemy.
+-- Prism Rush: shooting. Hold left mouse to fire bolts at the mouse; bolts die at the arena edge and damage the first enemy they overlap.
 
 local Config = require(script.Parent.Config)
 local Arena = require(script.Parent.Arena)
+local State = require(script.Parent.State)
 
 local Shooter = {}
 
@@ -33,7 +31,7 @@ function Shooter.update(dt, playerX, playerY, firing, mouseX, mouseY)
 		local dy = mouseY - playerY
 		local len = math.sqrt(dx * dx + dy * dy)
 		if len > 1 then
-			cooldown = Config.FIRE_RATE
+			cooldown = State.rapidTimer > 0 and Config.RAPID_RATE or Config.FIRE_RATE
 			local nx = dx / len
 			local ny = dy / len
 			local sx = playerX + nx * (Config.PLAYER_RADIUS + 8)

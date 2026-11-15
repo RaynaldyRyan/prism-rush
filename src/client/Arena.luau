@@ -1,7 +1,4 @@
--- Prism Rush: everything drawn in the arena. The background, the grid, the
--- player token and its trail, the portal, and the factories for every
--- entity frame (crystals, stars, pickups, enemies, bolts). All positions
--- are arena-local pixels with the entity's center at (x, y).
+-- Prism Rush: everything drawn in the arena (background, grid, player, portal, entity frames). All positions are arena-local pixels, entity center at (x, y).
 
 local TweenService = game:GetService("TweenService")
 
@@ -89,7 +86,6 @@ function Arena.build(gui)
 	stroke.Parent = arenaFrame
 	Arena._stroke = stroke
 
-	-- Grid lines, every 40 pixels. Built once, recolored per zone.
 	for x = 40, Config.ARENA_WIDTH - 40, 40 do
 		local line = Instance.new("Frame")
 		line.AnchorPoint = Vector2.new(0.5, 0)
@@ -122,7 +118,6 @@ function Arena.build(gui)
 	entities.ZIndex = 5
 	entities.Parent = arenaFrame
 
-	-- The portal sits at the top center of the arena.
 	portalFrame = frameAt(arenaFrame, PORTAL_X, PORTAL_Y, 56, 56, Color3.fromRGB(60, 60, 80), 0.25, 4)
 	corner(portalFrame, 28)
 	local portalStroke = Instance.new("UIStroke")
@@ -147,7 +142,6 @@ function Arena.build(gui)
 	portalLabel.ZIndex = 4
 	portalLabel.Parent = portalFrame
 
-	-- The player token: glow, body, bright core.
 	playerToken = frameAt(arenaFrame, Config.ARENA_WIDTH / 2, Config.ARENA_HEIGHT / 2, 32, 32, Config.PLAYER_COLOR, 0, 8)
 	corner(playerToken, 16)
 	playerGlow = frameAt(arenaFrame, Config.ARENA_WIDTH / 2, Config.ARENA_HEIGHT / 2, 50, 50, Config.PLAYER_COLOR, 0.65, 7)
@@ -174,8 +168,7 @@ function Arena.getPortalPosition()
 	return PORTAL_X, PORTAL_Y
 end
 
--- Re-skins the whole arena for a zone: background gradient, grid, border
--- and portal accent all take the zone's palette.
+-- Re-skins the arena for a zone: gradient, grid, border and portal accent.
 function Arena.applyZone(zoneIdx)
 	local zone = Config.ZONES[zoneIdx]
 	bgGradient.Color = ColorSequence.new({
@@ -235,7 +228,6 @@ function Arena.setPlayerVisible(visible)
 	playerGlow.Visible = visible
 end
 
--- Blink the token while invulnerable: dim on, bright off.
 function Arena.setPlayerDim(dim)
 	if dim then
 		playerToken.BackgroundTransparency = 0.6
@@ -252,7 +244,16 @@ function Arena.setShieldVisible(visible)
 	shieldRing.Visible = visible
 end
 
--- A fading ghost at the player's position: the dash and movement trail.
+function Arena.setRapidGlow(active)
+	if active then
+		playerToken.BackgroundColor3 = Color3.fromRGB(255, 210, 60)
+		playerGlow.BackgroundColor3 = Color3.fromRGB(255, 210, 60)
+	else
+		playerToken.BackgroundColor3 = Config.PLAYER_COLOR
+		playerGlow.BackgroundColor3 = Config.PLAYER_COLOR
+	end
+end
+
 function Arena.spawnGhost(x, y, color)
 	local ghost = frameAt(entities, x, y, 24, 24, color or Config.PLAYER_COLOR, 0.4, 6)
 	corner(ghost, 12)
@@ -275,7 +276,6 @@ function Arena.updateTrail(x, y, moving, dt)
 	end
 end
 
--- A burst of tiny fading squares: mining sparks, kill flashes, pickups.
 function Arena.sparkle(x, y, color, count)
 	for _ = 1, count or 6 do
 		local ox = math.random(-14, 14)
@@ -310,8 +310,6 @@ function Arena.updateShake(dt)
 	end
 end
 
--- A crystal: a rotated square (a diamond) with a glow behind it and a
--- bright core, in the zone's crystal color.
 function Arena.newCrystal(x, y, color)
 	local glow = frameAt(entities, x, y, 44, 44, color, 0.7, 5)
 	glow.Rotation = 45
@@ -323,7 +321,6 @@ function Arena.newCrystal(x, y, color)
 	core.AnchorPoint = Vector2.new(0.5, 0.5)
 	core.Position = UDim2.fromScale(0.5, 0.5)
 	corner(core, 2)
-	-- The glow rides along with the body.
 	body:GetPropertyChangedSignal("Position"):Connect(function()
 		glow.Position = body.Position
 	end)
@@ -387,6 +384,16 @@ function Arena.newEnemy(kind, x, y)
 		ring.Color = Color3.fromRGB(255, 255, 255)
 		ring.Thickness = 2
 		ring.Parent = body
+	elseif kind == "shooter" then
+		body.Rotation = 45 -- diamond, distinct from round chasers
+		glow.Rotation = 45
+	elseif kind == "boss" then
+		local ring = Instance.new("UIStroke") -- gold ring for the Titan
+		ring.Color = Color3.fromRGB(255, 210, 60)
+		ring.Thickness = 4
+		ring.Parent = body
+		eye.Size = UDim2.fromOffset(16, 16)
+		corner(eye, 8)
 	end
 	body:GetPropertyChangedSignal("Position"):Connect(function()
 		glow.Position = body.Position
@@ -394,15 +401,24 @@ function Arena.newEnemy(kind, x, y)
 	return body
 end
 
-function Arena.newBolt(x, y, angle)
-	local bolt = frameAt(entities, x, y, 18, 6, Color3.fromRGB(255, 250, 180), 0, 7)
+function Arena.newRapidPickup(x, y)
+	local pick = frameAt(entities, x, y, 26, 26, Color3.fromRGB(255, 210, 60), 0, 6)
+	pick.Rotation = 45
+	corner(pick, 5)
+	local core = frameAt(pick, 0, 0, 10, 10, Color3.fromRGB(255, 255, 255), 0, 7)
+	core.AnchorPoint = Vector2.new(0.5, 0.5)
+	core.Position = UDim2.fromScale(0.5, 0.5)
+	corner(core, 2)
+	return pick
+end
+
+function Arena.newBolt(x, y, angle, color)
+	local bolt = frameAt(entities, x, y, 18, 6, color or Color3.fromRGB(255, 250, 180), 0, 7)
 	bolt.Rotation = math.deg(angle)
 	corner(bolt, 3)
 	return bolt
 end
 
--- Flies a mined crystal's frame to an absolute screen position (the HUD
--- charge bar), shrinking as it goes, then destroys it.
 function Arena.flyCrystalToPortal(crystalFrame, targetAbsPos, onDone)
 	local origin = arenaFrame.AbsolutePosition
 	local target = UDim2.fromOffset(

@@ -1,7 +1,4 @@
--- Prism Rush: the client entry point. Builds the GUI, wires the modules
--- together and runs the game loop. It stays thin on purpose: tuning lives
--- in Config, state in State, drawing in Arena and Screens, mining in
--- Miner, bolts in Shooter, enemies in Enemies, pickups in Pickups.
+-- Prism Rush: client entry. Builds the GUI, wires the modules, runs the loop.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -20,8 +17,7 @@ local Pickups = require(script.Parent.Pickups)
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- The server's best-score RemoteFunction. It may be absent (a Studio run
--- with the server script disabled); the game plays on with a local best.
+-- Best-score remote; may be absent in Studio.
 local remote = ReplicatedStorage:WaitForChild("BestScore", 5)
 
 local loopConnection = nil
@@ -35,30 +31,25 @@ local lastDy = 0
 local invulnTimer = 0
 local portalCharged = false
 
-local function getBestFromServer()
+local function bestCall(op, score)
 	if not remote then
-		return 0
+		return score or 0
 	end
 	local ok, result = pcall(function()
-		return remote:InvokeServer("get")
+		return remote:InvokeServer(op, score)
 	end)
 	if ok and typeof(result) == "number" then
 		return result
 	end
-	return 0
+	return score or 0
+end
+
+local function getBestFromServer()
+	return bestCall("get")
 end
 
 local function saveBestToServer(score)
-	if not remote then
-		return score
-	end
-	local ok, result = pcall(function()
-		return remote:InvokeServer("save", score)
-	end)
-	if ok and typeof(result) == "number" then
-		return result
-	end
-	return score
+	return bestCall("save", score)
 end
 
 local function stopLoop()
@@ -103,9 +94,13 @@ local function advanceZone()
 	local zone = Config.ZONES[State.zone]
 	Arena.applyZone(State.zone)
 	Arena.setPortalAccent(zone.accent)
-	Miner.spawnCrystals(State.zone)
 	Enemies.reset()
 	Pickups.reset()
+	if State.zone == 5 then
+		Enemies.spawnBoss()
+	else
+		Miner.spawnCrystals(State.zone)
+	end
 	State.breather = 1
 	Screens.showBanner("ZONE " .. tostring(State.zone) .. " — " .. string.upper(zone.name), zone.subtitle)
 	Screens.showPopup(State.playerX, State.playerY - 40, "+200", zone.accent)
@@ -119,7 +114,6 @@ local function onFrame(dt)
 	State.tickCombo(dt)
 	Input.update()
 
-	-- Movement, with a dash that locks its direction at the press.
 	local dx, dy = Input.moveVector()
 	if dx ~= 0 or dy ~= 0 then
 		lastDx, lastDy = dx, dy
@@ -159,6 +153,12 @@ local function onFrame(dt)
 	if invulnTimer > 0 then
 		invulnTimer -= dt
 	end
+	if State.rapidTimer > 0 then
+		State.rapidTimer -= dt
+		if State.rapidTimer <= 0 then
+			Arena.setRapidGlow(false)
+		end
+	end
 	Arena.setPlayerDim(invulnTimer > 0 and math.floor(State.elapsed * 10) % 2 == 0)
 
 	local mouseX, mouseY = Input.mouseArenaPos(Arena.getFrame())
@@ -167,7 +167,6 @@ local function onFrame(dt)
 	Enemies.update(dt, newX, newY, State.zone, State.breather > 0)
 	Pickups.update(dt, newX, newY)
 
-	-- Touching a charged portal advances the zone (or wins the game).
 	if portalCharged then
 		local px, py = Arena.getPortalPosition()
 		local ox = newX - px
@@ -207,6 +206,7 @@ local function startGame()
 	Arena.setPlayerVisible(true)
 	Arena.setPlayerDim(false)
 	Arena.setShieldVisible(false)
+	Arena.setRapidGlow(false)
 	Screens.hideStart()
 	Screens.hideEnd()
 	Screens.showHUD()
@@ -215,7 +215,6 @@ local function startGame()
 	loopConnection = RunService.RenderStepped:Connect(onFrame)
 end
 
--- Module wiring: every scoring and damage event flows through here.
 Miner.init({
 	onMined = function(x, y)
 		local zone = Config.ZONES[State.zone]
@@ -243,12 +242,23 @@ Shooter.init({
 
 Enemies.init({
 	onKilled = function(kind, x, y)
+		if kind == "boss" then
+			State.score += 1000
+			Screens.showPopup(x, y, "+1000", Color3.fromRGB(255, 220, 100))
+			Arena.sparkle(x, y, Color3.fromRGB(255, 220, 100), 24)
+			Arena.shake(10)
+			winGame()
+			return
+		end
 		local gained = State.addScore(Config.SCORES[kind])
 		local color = Config.ENEMY_TYPES[kind].color
 		Screens.showPopup(x, y, "+" .. tostring(gained), color)
 		Arena.sparkle(x, y, color, 8)
 		if kind == "splitter" and math.random() < 0.25 then
 			Pickups.spawnHeart(x, y)
+		end
+		if kind == "splitter" and math.random() < 0.15 then
+			Pickups.spawnRapid(x, y)
 		end
 	end,
 	onPlayerHit = function()
@@ -288,11 +298,14 @@ Pickups.init({
 		State.lives = math.min(Config.MAX_LIVES, State.lives + 1)
 		Screens.showPopup(x, y, "+1 HP", Color3.fromRGB(255, 120, 140))
 	end,
+	onRapid = function(x, y)
+		State.rapidTimer = Config.RAPID_TIME
+		Arena.setRapidGlow(true)
+		Screens.showPopup(x, y, "RAPID FIRE!", Color3.fromRGB(255, 210, 60))
+	end,
 })
 
--- Build the game, then show the menu. The arena behind the start screen
--- already shows zone 1 with its crystals, so the first screenshot reads
--- as a game, not an empty frame.
+-- Build the game, then show the menu. The arena behind the start screen already shows zone 1 with its crystals.
 local gui = Instance.new("ScreenGui")
 gui.Name = "PrismRushGui"
 gui.ResetOnSpawn = false

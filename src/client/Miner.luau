@@ -1,7 +1,4 @@
--- Prism Rush: mining. Hold E within range of a crystal to channel it:
--- a progress bar fills above the crystal for 0.8 seconds, then the crystal
--- flies to the portal charge bar. Releasing E, or moving out of range,
--- cancels the channel and the progress resets.
+-- Prism Rush: mining. Hold E near a crystal to channel it (0.8s); the crystal then flies to the charge bar. Releasing E or moving away cancels.
 
 local Config = require(script.Parent.Config)
 local Arena = require(script.Parent.Arena)
@@ -65,7 +62,6 @@ local function randomCrystalPos(placed)
 	for _ = 1, 40 do
 		local x = math.random(50, Config.ARENA_WIDTH - 50)
 		local y = math.random(50, Config.ARENA_HEIGHT - 50)
-		-- Keep clear of the player spawn (arena center) and of other crystals.
 		local dx = x - Config.ARENA_WIDTH / 2
 		local dy = y - Config.ARENA_HEIGHT / 2
 		if dx * dx + dy * dy < 130 * 130 then
@@ -114,7 +110,6 @@ local function dist2(ax, ay, bx, by)
 end
 
 function Miner.update(dt, playerX, playerY, miningHeld)
-	-- (Re)acquire a target: the nearest crystal in range.
 	if target == nil then
 		if not miningHeld then
 			return
@@ -137,7 +132,6 @@ function Miner.update(dt, playerX, playerY, miningHeld)
 		ringBg.Visible = true
 	end
 
-	-- Cancel paths: E released, or the player moved out of range.
 	if not miningHeld or dist2(playerX, playerY, target.x, target.y) > Config.MINE_RANGE * Config.MINE_RANGE then
 		hideRing()
 		return
@@ -161,8 +155,7 @@ function Miner.update(dt, playerX, playerY, miningHeld)
 				break
 			end
 		end
-		-- The crystal flies to the HUD charge bar as a pure visual; the
-		-- charge itself is awarded by the callback right away.
+		-- The crystal flies to the HUD charge bar as a pure visual.
 		Arena.flyCrystalToPortal(mined.frame, Screens.getChargeBarAbsPos(), nil)
 		if callbacks and callbacks.onMined then
 			callbacks.onMined(mined.x, mined.y)

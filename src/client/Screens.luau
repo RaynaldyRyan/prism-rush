@@ -1,7 +1,4 @@
--- Prism Rush: the screens — start, HUD, zone banners, end screens, popups,
--- the damage flash and the confetti. Reads State on every refresh; nothing
--- here keeps its own copy of the score or the lives. All HUD text stays
--- clear of the top-left corner, where Roblox's own menu buttons sit.
+-- Prism Rush: the screens (start, HUD, banners, end, popups, flash, confetti). Reads State on refresh. All HUD text stays clear of the top-left corner, where Roblox's menu buttons sit.
 
 local TweenService = game:GetService("TweenService")
 
@@ -16,6 +13,11 @@ local zoneLabel = nil
 local crystalLabel = nil
 local chargeFill = nil
 local chargeBar = nil
+local bossLabel = nil
+local bossFill = nil
+local bossBar = nil
+local rapidFill = nil
+local rapidBar = nil
 local scoreLabel = nil
 local bestLabel = nil
 local comboLabel = nil
@@ -85,7 +87,6 @@ function Screens.build(gui, arena, callbacks)
 	hud.Visible = false
 	hud.Parent = gui
 
-	-- Top center: zone, crystals, portal charge.
 	zoneLabel = label(hud, "ZONE 1 — EMBER GROTTO", 22, Color3.fromRGB(255, 255, 255), Enum.Font.GothamBlack)
 	zoneLabel.AnchorPoint = Vector2.new(0.5, 0)
 	zoneLabel.Position = UDim2.new(0.5, 0, 0, 10)
@@ -100,7 +101,17 @@ function Screens.build(gui, arena, callbacks)
 	chargeBar.AnchorPoint = Vector2.new(0.5, 0)
 	chargeBar.Position = UDim2.new(0.5, 0, 0, 66)
 
-	-- Top right: score, best.
+	bossLabel = label(hud, "PRISM TITAN", 17, Color3.fromRGB(255, 120, 200), Enum.Font.GothamBlack)
+	bossLabel.AnchorPoint = Vector2.new(0.5, 0)
+	bossLabel.Position = UDim2.new(0.5, 0, 0, 40)
+	bossLabel.Size = UDim2.fromOffset(300, 22)
+	bossLabel.Visible = false
+
+	bossBar, bossFill = bar(hud, 0, 66, 220, 14, Color3.fromRGB(255, 80, 160))
+	bossBar.AnchorPoint = Vector2.new(0.5, 0)
+	bossBar.Position = UDim2.new(0.5, 0, 0, 66)
+	bossBar.Visible = false
+
 	scoreLabel = label(hud, "SCORE 0", 26, Color3.fromRGB(255, 255, 255), Enum.Font.GothamBlack)
 	scoreLabel.AnchorPoint = Vector2.new(1, 0)
 	scoreLabel.Position = UDim2.new(1, -16, 0, 10)
@@ -113,17 +124,13 @@ function Screens.build(gui, arena, callbacks)
 	bestLabel.Size = UDim2.fromOffset(300, 20)
 	bestLabel.TextXAlignment = Enum.TextXAlignment.Right
 
-	-- Bottom center: combo. It used to sit top-right under BEST, where
-	-- Roblox's own player-list chip covers it in a Studio playtest; down
-	-- here it forms a bottom row with the hearts (left) and dash (right),
-	-- clear of the chip, the menu buttons and the arena.
+	-- Bottom center: combo (top-right is covered by Roblox's player-list chip).
 	comboLabel = label(hud, "COMBO x1", 24, Color3.fromRGB(160, 160, 170), Enum.Font.GothamBlack)
 	comboLabel.AnchorPoint = Vector2.new(0.5, 1)
 	comboLabel.Position = UDim2.new(0.5, 0, 1, -16)
 	comboLabel.Size = UDim2.fromOffset(300, 30)
 	comboLabel.TextXAlignment = Enum.TextXAlignment.Center
 
-	-- Bottom left: hearts (filled circles).
 	for i = 1, Config.MAX_LIVES do
 		local dot = Instance.new("Frame")
 		dot.AnchorPoint = Vector2.new(0, 1)
@@ -139,7 +146,6 @@ function Screens.build(gui, arena, callbacks)
 		table.insert(heartDots, dot)
 	end
 
-	-- Bottom right: dash bar.
 	dashLabel = label(hud, "DASH READY [SPACE]", 15, Color3.fromRGB(140, 240, 255), Enum.Font.GothamBold)
 	dashLabel.AnchorPoint = Vector2.new(1, 1)
 	dashLabel.Position = UDim2.new(1, -16, 1, -46)
@@ -151,7 +157,11 @@ function Screens.build(gui, arena, callbacks)
 	dashBar.Position = UDim2.new(1, -16, 1, -16)
 	dashFill = fill
 
-	-- Zone banner, center screen.
+	rapidBar, rapidFill = bar(hud, 0, 0, 180, 8, Color3.fromRGB(255, 210, 60))
+	rapidBar.AnchorPoint = Vector2.new(1, 1)
+	rapidBar.Position = UDim2.new(1, -16, 1, -62)
+	rapidBar.Visible = false
+
 	bannerFrame = Instance.new("Frame")
 	bannerFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 	bannerFrame.Position = UDim2.fromScale(0.5, 0.32)
@@ -169,7 +179,6 @@ function Screens.build(gui, arena, callbacks)
 	bannerSub.Size = UDim2.fromOffset(560, 30)
 	bannerSub.TextTransparency = 1
 
-	-- Damage flash.
 	flash = Instance.new("Frame")
 	flash.Size = UDim2.fromScale(1, 1)
 	flash.BackgroundColor3 = Color3.fromRGB(255, 40, 50)
@@ -178,14 +187,12 @@ function Screens.build(gui, arena, callbacks)
 	flash.ZIndex = 40
 	flash.Parent = gui
 
-	-- Confetti container.
 	confettiBox = Instance.new("Frame")
 	confettiBox.Size = UDim2.fromScale(1, 1)
 	confettiBox.BackgroundTransparency = 1
 	confettiBox.ZIndex = 35
 	confettiBox.Parent = gui
 
-	-- Start overlay.
 	startOverlay = Instance.new("Frame")
 	startOverlay.Size = UDim2.fromScale(1, 1)
 	startOverlay.BackgroundColor3 = Color3.fromRGB(10, 8, 24)
@@ -213,7 +220,7 @@ function Screens.build(gui, arena, callbacks)
 
 	local howto = label(
 		startOverlay,
-		"WASD / Arrows — move     SPACE — dash\nHold E near a crystal — mine it     CLICK — shoot\nMine 6 crystals, then touch the portal to advance",
+		"WASD / Arrows — move     SPACE — dash\nHold E near a crystal — mine it     CLICK — shoot\nClear 4 zones, then defeat the Prism Titan to win",
 		18,
 		Color3.fromRGB(210, 210, 220),
 		Enum.Font.Gotham,
@@ -244,7 +251,6 @@ function Screens.build(gui, arena, callbacks)
 	startBestLabel.Position = UDim2.new(0.5, 0, 0.52, 76)
 	startBestLabel.Size = UDim2.fromOffset(300, 24)
 
-	-- End overlay (win and game over share it).
 	endOverlay = Instance.new("Frame")
 	endOverlay.Size = UDim2.fromScale(1, 1)
 	endOverlay.BackgroundColor3 = Color3.fromRGB(10, 8, 24)
@@ -304,10 +310,10 @@ function Screens.hideEnd()
 end
 
 function Screens.showWin(score, elapsed, crystals, best)
-	endTitle.Text = "PRISM RESTORED!"
+	endTitle.Text = "TITAN DEFEATED!"
 	endTitle.TextColor3 = Color3.fromRGB(255, 220, 100)
 	endStats.Text = string.format(
-		"Score %d  •  Time %d:%02d  •  Crystals %d\nBest %d",
+		"PRISM RESTORED!  •  Score %d  •  Time %d:%02d  •  Crystals %d\nBest %d",
 		score,
 		math.floor(elapsed / 60),
 		math.floor(elapsed % 60),
@@ -330,17 +336,28 @@ function Screens.showGameOver(zone, score, crystals, best)
 	endOverlay.Visible = true
 end
 
--- Re-reads State and updates every HUD element. Called every frame.
 function Screens.refresh()
 	local zone = Config.ZONES[State.zone]
 	zoneLabel.Text = "ZONE " .. tostring(State.zone) .. " — " .. string.upper(zone.name)
 	zoneLabel.TextColor3 = zone.accent
+	local bossZone = State.zone == 5
+	crystalLabel.Visible = not bossZone
+	chargeBar.Visible = not bossZone
+	bossLabel.Visible = bossZone
+	bossBar.Visible = bossZone
+	if bossZone and State.bossMax > 0 then
+		bossFill.Size = UDim2.fromOffset(math.floor(220 * State.bossHp / State.bossMax + 0.5), 14)
+	end
 	crystalLabel.Text = "CRYSTALS " .. tostring(State.portalCharge) .. "/" .. tostring(Config.CRYSTALS_PER_ZONE)
 	chargeFill.Size = UDim2.fromOffset(
 		math.floor(220 * State.portalCharge / Config.CRYSTALS_PER_ZONE + 0.5),
 		14
 	)
 	chargeFill.BackgroundColor3 = zone.crystal
+	rapidBar.Visible = State.rapidTimer > 0
+	if State.rapidTimer > 0 then
+		rapidFill.Size = UDim2.fromOffset(math.floor(180 * State.rapidTimer / Config.RAPID_TIME + 0.5), 8)
+	end
 	scoreLabel.Text = "SCORE " .. tostring(State.score)
 	bestLabel.Text = "BEST " .. tostring(State.best)
 	comboLabel.Text = "COMBO x" .. tostring(State.combo)
@@ -362,7 +379,6 @@ function Screens.refresh()
 	end
 end
 
--- fraction 1 = dash ready. Called every frame.
 function Screens.setDashFraction(fraction)
 	dashFill.Size = UDim2.fromOffset(math.floor(180 * math.clamp(fraction, 0, 1) + 0.5), 12)
 	if fraction >= 1 then
@@ -376,8 +392,7 @@ function Screens.setDashFraction(fraction)
 	end
 end
 
--- A big center banner. The token guard stops an earlier banner's delayed
--- fade from cutting a newer one short.
+-- A big center banner (the token guard stops a stale fade cutting a newer one).
 function Screens.showBanner(title, subtitle)
 	bannerToken += 1
 	local token = bannerToken
@@ -396,7 +411,6 @@ function Screens.showBanner(title, subtitle)
 	end)
 end
 
--- A floating "+50" at arena coordinates, rising and fading.
 function Screens.showPopup(x, y, text, color)
 	local pop = Instance.new("TextLabel")
 	pop.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -425,7 +439,6 @@ function Screens.flashDamage()
 	TweenService:Create(flash, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
 end
 
--- The absolute center of the charge bar, for the crystal fly-to tween.
 function Screens.getChargeBarAbsPos()
 	local pos = chargeBar.AbsolutePosition
 	local size = chargeBar.AbsoluteSize

@@ -1,8 +1,4 @@
--- Prism Rush: keyboard and mouse polling. Everything is read with IsKeyDown
--- every frame: Roblox's default camera scripts swallow the arrow keys in
--- InputBegan when gameProcessedEvent is true, so a handler that returns on
--- gameProcessedEvent never sees them. Dash uses edge detection on top of
--- the same poll; shooting is hold-to-fire with its own rate gate.
+-- Prism Rush: keyboard and mouse polling via IsKeyDown every frame (InputBegan misses the arrows: camera scripts swallow them). Dash uses edge detection; shooting is hold-to-fire.
 
 local UserInputService = game:GetService("UserInputService")
 
@@ -11,14 +7,12 @@ local Input = {}
 local prevSpace = false
 local dashQueued = false
 
--- Call once per frame, before reading anything else.
 function Input.update()
 	local space = UserInputService:IsKeyDown(Enum.KeyCode.Space)
 	dashQueued = space and not prevSpace
 	prevSpace = space
 end
 
--- True once per Space press; consuming it clears the flag.
 function Input.dashPressed()
 	local queued = dashQueued
 	dashQueued = false
@@ -41,7 +35,6 @@ function Input.moveVector()
 		dy += 1
 	end
 	if dx ~= 0 and dy ~= 0 then
-		-- Diagonals cover the same distance as straight lines.
 		dx *= 0.7071
 		dy *= 0.7071
 	end
@@ -56,9 +49,7 @@ function Input.isFiring()
 	return UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
 end
 
--- The mouse position in arena-local pixels, or nil when the mouse is
--- outside the arena frame. The ScreenGui ignores the topbar inset, so
--- GetMouseLocation and AbsolutePosition share the same origin.
+-- Mouse position in arena-local pixels, or nil outside the arena frame.
 function Input.mouseArenaPos(arenaFrame)
 	local mouse = UserInputService:GetMouseLocation()
 	local origin = arenaFrame.AbsolutePosition
